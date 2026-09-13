@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  fullName     String
+  projects     Project[]
+  createdAt    DateTime  @default(now())
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  apiKey    String   @unique
+  events    Event[]
+  createdAt DateTime @default(now())
+}
+
+model Event {
+  id         String   @id @default(cuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id])
+  name       String
+  distinctId String
+  // JSON-encoded object, capped at 4KB serialized (see src/constants.js) and
+  // validated app-side since SQLite has no native JSON/enum column type.
+  properties String   @default("{}")
+  occurredAt DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([projectId, occurredAt])
+  @@index([projectId, name])
+  @@index([projectId, distinctId])
+}
