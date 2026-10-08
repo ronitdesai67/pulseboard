@@ -24,17 +24,21 @@ Driftwell's two-person team had page-view logs scattered across their host's bas
 
 ## Tech stack
 
-- **Backend:** Node.js, Express, Prisma ORM, SQLite (swappable to Postgres via `DATABASE_URL` with no code changes)
+- **Backend:** Node.js, Express, Prisma ORM, PostgreSQL
 - **Frontend:** React 18, Vite, Tailwind CSS, Recharts, React Router
 - **Auth:** JWT + bcrypt for the dashboard login; separate per-project API keys for event ingestion (deliberately not the same credential — a leaked tracking key should never grant dashboard access, and vice versa)
 
 ## Running it locally
 
+Needs a PostgreSQL database. Create one and point `server/.env` at it
+(copy `server/.env.example` for the full list of variables):
+
 ```bash
 # Backend
 cd server
 npm install
-npx prisma migrate dev --name init
+cp .env.example .env          # then set DATABASE_URL
+npx prisma migrate deploy
 node prisma/seed.js
 npm run dev        # http://localhost:4300
 
@@ -43,6 +47,10 @@ cd client
 npm install
 npm run dev         # http://localhost:5176
 ```
+
+The client calls `/api` as a relative path and Vite proxies it to the
+backend port in dev, which is the same path it uses in production -- so
+there is no API URL to configure in either environment.
 
 ## On the public ingestion endpoint — a deliberate security decision
 
@@ -56,8 +64,32 @@ npm run dev         # http://localhost:5176
 
 Since this is a live, publicly clickable demo, two things keep it from degrading over time:
 
-1. `DEMO_RESEED_CRON` (set in the deployed server's env, e.g. `0 */3 * * *`) re-runs the seed script on a schedule, regenerating both projects' event history with dates relative to "now" and wiping anything sent in via `/api/track` (test events included) — so the trend charts never look stale or spammy.
+1. A daily Vercel Cron job (`/api/cron/reseed`) re-runs the seed script on a schedule, regenerating both projects' event history with dates relative to "now" and wiping anything sent in via `/api/track` (test events included) — so the trend charts never look stale or spammy.
 2. The "events in the last 24h" stat falls back to the most recent 24-hour window that actually has data if the literal last-24h window is empty, so the number never looks broken if the demo sits idle overnight.
+
+## Deploying
+
+This deploys to Vercel as a **single project**: the Vite client builds to
+static files and the Express API runs as one serverless function mounted at
+`/api` on the same domain (`api/index.js` simply exports the app). Because
+both halves share an origin, there is no CORS configuration and no API URL to
+keep in sync.
+
+Two consequences of serverless shaped the code:
+
+- **Postgres, not SQLite.** Vercel's filesystem is read-only apart from an
+  ephemeral `/tmp`, so a SQLite file cannot persist anything a visitor does.
+  `src/prisma.js` also caches the client on `globalThis` so a warm container
+  reuses one connection pool instead of opening a new one per invocation.
+- **Cron is external.** There is no long-lived process to hold a timer, so the
+  demo reseed runs as a Vercel Cron job against `/api/cron/reseed`, guarded by
+  a `CRON_SECRET` bearer token (the endpoint rewrites every table, so it
+  refuses all requests when that secret is unset).
+
+Required environment variables (see `server/.env.example`): `DATABASE_URL`,
+`JWT_SECRET`, `CRON_SECRET`. The build command runs `prisma migrate deploy`
+and the seed script, so a fresh deploy provisions and populates its own
+database.
 
 ## What I'd build next for a real client
 

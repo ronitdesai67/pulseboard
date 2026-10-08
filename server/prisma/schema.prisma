@@ -1,9 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // "native" keeps local dev working; the rhel target is what Vercel's
+  // serverless runtime (Amazon Linux 2023) actually loads at cold start.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -33,7 +36,9 @@ model Event {
   name       String
   distinctId String
   // JSON-encoded object, capped at 4KB serialized (see src/constants.js) and
-  // validated app-side since SQLite has no native JSON/enum column type.
+  // validated app-side: keeping it a plain string means the size cap and shape
+  // check stay in one place in application code, on the one endpoint that
+  // accepts unauthenticated writes.
   properties String   @default("{}")
   occurredAt DateTime
   createdAt  DateTime @default(now())
