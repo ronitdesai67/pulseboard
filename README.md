@@ -2,7 +2,7 @@
 
 A mini product-analytics dashboard (a "just enough" PostHog/Mixpanel) built for **Driftwell** (fictional client, built as a portfolio case study), an early-stage wellness startup that needed to see how people actually use their marketing site and mobile app without paying for a full analytics platform they'd barely scratch the surface of.
 
-**Live demo:** _add your deployed URL here_
+**Live demo:** <https://pulseboard-ten-rho.vercel.app>
 **Demo login** (one-click quick-fill on the login screen):
 
 | Email | Password |
